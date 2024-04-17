@@ -16,7 +16,8 @@ namespace TheAdventure
         private Input _input;
 
         private DateTimeOffset _lastUpdate = DateTimeOffset.Now;
-        private DateTimeOffset _lastPlayerUpdate = DateTimeOffset.Now;
+        private DateTimeOffset _lastRandomBombTime = DateTimeOffset.Now;
+        private Random _random = new Random();
 
         public Engine(GameRenderer renderer, Input input)
         {
@@ -85,10 +86,18 @@ namespace TheAdventure
             var itemsToRemove = new List<int>();
             itemsToRemove.AddRange(GetAllTemporaryGameObjects().Where(gameObject => gameObject.IsExpired)
                 .Select(gameObject => gameObject.Id).ToList());
+            
+            CheckBombCollisions();
 
             foreach (var gameObject in itemsToRemove)
             {
                 _gameObjects.Remove(gameObject);
+            }
+
+            if ((currentTime - _lastRandomBombTime).TotalSeconds > _random.Next(2, 8))
+            {
+                AddRandomBomb();
+                _lastRandomBombTime = currentTime;
             }
         }
 
@@ -96,7 +105,7 @@ namespace TheAdventure
         {
             _renderer.SetDrawColor(0, 0, 0, 255);
             _renderer.ClearScreen();
-            
+
             _renderer.CameraLookAt(_player.Position.X, _player.Position.Y);
 
             RenderTerrain();
@@ -136,13 +145,17 @@ namespace TheAdventure
                     for (var j = 0; j < _currentLevel.Height; ++j)
                     {
                         var cTileId = cLayer.Data[j * cLayer.Width + i] - 1;
-                        var tileVariations = _loadedTileSets.SelectMany(ts => ts.Value.Tiles.Where(t => t.Id == cTileId)).ToList();
-                
-                        var cTile = tileVariations.Count > 1 ? tileVariations[random.Next(tileVariations.Count)] : GetTile(cTileId);
+                        var tileVariations = _loadedTileSets
+                            .SelectMany(ts => ts.Value.Tiles.Where(t => t.Id == cTileId)).ToList();
+
+                        var cTile = tileVariations.Count > 1
+                            ? tileVariations[random.Next(tileVariations.Count)]
+                            : GetTile(cTileId);
                         if (cTile == null) continue;
 
                         var src = new Rectangle<int>(0, 0, cTile.ImageWidth, cTile.ImageHeight);
-                        var dst = new Rectangle<int>(i * cTile.ImageWidth, j * cTile.ImageHeight, cTile.ImageWidth, cTile.ImageHeight);
+                        var dst = new Rectangle<int>(i * cTile.ImageWidth, j * cTile.ImageHeight, cTile.ImageWidth,
+                            cTile.ImageHeight);
 
                         _renderer.RenderTexture(cTile.InternalTextureId, src, dst);
                     }
@@ -193,9 +206,46 @@ namespace TheAdventure
                 DurationMs = 2000,
                 Loop = false
             };
-            spriteSheet.ActivateAnimation("Explode");
             TemporaryGameObject bomb = new(spriteSheet, 2.1, (translated.X, translated.Y));
             _gameObjects.Add(bomb.Id, bomb);
+        }
+
+        private void AddRandomBomb()
+        {
+            int randomX = _random.Next(0, _currentLevel.Width);
+            int randomY = _random.Next(0, _currentLevel.Height);
+            AddBomb(randomX * _currentLevel.TileWidth, randomY * _currentLevel.TileHeight);
+        }
+
+        private void CheckBombCollisions()
+        {
+            int playerWidth = 48; // Lățimea jucătorului
+            int playerHeight = 48; // Înălțimea jucătorului
+            var playerPosition = new Vector2D<int>(_player.Position.X - playerWidth / 2, _player.Position.Y - playerHeight / 2); // Centrul este convertit la colțul din stânga sus
+
+            foreach (var obj in _gameObjects.Values.ToList())
+            {
+                if (obj is TemporaryGameObject bomb)
+                {
+                    var bombPosition = new Vector2D<int>(bomb.Position.X - 16, bomb.Position.Y - 32); // Centrul este convertit la colțul din stânga sus pentru bombă
+                    if (Intersects(playerPosition, playerWidth, playerHeight, bombPosition, 32, 64))
+                    {
+                        bomb.SpriteSheet.ActivateAnimation("Explode");
+                    }
+                }
+            }
+        }
+
+
+        private bool Intersects(Vector2D<int> posA, int widthA, int heightA, Vector2D<int> posB, int widthB,
+            int heightB)
+        {
+            // Check horizontal overlap
+            bool horizontalOverlap = posA.X < posB.X + widthB && posA.X + widthA > posB.X;
+            // Check vertical overlap
+            bool verticalOverlap = posA.Y < posB.Y + heightB && posA.Y + heightA > posB.Y;
+
+            return horizontalOverlap && verticalOverlap;
         }
     }
 }
