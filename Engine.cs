@@ -125,7 +125,7 @@ namespace TheAdventure
         private void RenderTerrain()
         {
             if (_currentLevel == null) return;
-            Random random = new Random();  // Generator de numere aleatorii
+            Random random = new Random();
 
             for (var layer = 0; layer < _currentLevel.Layers.Length; ++layer)
             {
@@ -138,7 +138,6 @@ namespace TheAdventure
                         var cTileId = cLayer.Data[j * cLayer.Width + i] - 1;
                         var tileVariations = _loadedTileSets.SelectMany(ts => ts.Value.Tiles.Where(t => t.Id == cTileId)).ToList();
                 
-                        // Dacă există mai multe variații ale aceluiași tile ID, alege una aleatoriu
                         var cTile = tileVariations.Count > 1 ? tileVariations[random.Next(tileVariations.Count)] : GetTile(cTileId);
                         if (cTile == null) continue;
 
