@@ -124,9 +124,9 @@ namespace TheAdventure
             
             spriteSheet.Animations["Stay"] = new SpriteSheet.Animation()
             {
-                StartFrame = (6, 0),
-                EndFrame = (6, 3),
-                DurationMs = 1000,
+                StartFrame = (9, 0),
+                EndFrame = (9, 3),
+                DurationMs = 2000,
                 Loop = true
             };
             
@@ -274,7 +274,6 @@ namespace TheAdventure
                 DurationMs = 2000,
                 Loop = false
             };
-            // spriteSheet.ActivateAnimation("Explode");
             TemporaryGameObject bomb = new(spriteSheet, 10, (translated.X, translated.Y));
             _gameObjects.Add(bomb.Id, bomb);
         }
@@ -292,8 +291,6 @@ namespace TheAdventure
             {
                 if (gameObject is TemporaryGameObject bomb)
                 {
-                    // Let's assume the player's position is a point and the bomb's position is also a point
-                    // You may need a more complex check if they are larger or if you're using hitboxes
                     if (IsPlayerCollidingWithBomb(_player.Position, bomb.Position))
                     {
                         TriggerBombExplosion(bomb);
@@ -304,21 +301,14 @@ namespace TheAdventure
 
         private bool IsPlayerCollidingWithBomb((int X, int Y) playerPosition, (int X, int Y) bombPosition)
         {
-            // Simple collision detection
-            // Adjust the threshold according to the size of the player and bomb sprites
-            const int collisionThreshold = 32; // You may need to adjust this value
+            const int collisionThreshold = 48; 
             return Math.Abs(playerPosition.X - bombPosition.X) < collisionThreshold &&
                    Math.Abs(playerPosition.Y - bombPosition.Y) < collisionThreshold;
         }
 
         private void TriggerBombExplosion(TemporaryGameObject bomb)
         {
-            // Here you would start the explosion animation for the bomb
-            // For example:
             bomb.SpriteSheet.ActivateAnimation("Explode");
-
-            // You may also want to handle the aftermath of the explosion
-            // e.g., reducing player health, playing a sound effect, etc.
         }
     }
 }
