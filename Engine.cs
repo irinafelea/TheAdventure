@@ -55,6 +55,65 @@ namespace TheAdventure
 
             _currentLevel = level;
             SpriteSheet spriteSheet = new(_renderer, Path.Combine("Assets", "player.png"), 10, 6, 48, 48, (24, 42));
+            
+            spriteSheet.Animations["WalkRight"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (4, 0),
+                EndFrame = (4, 5),
+                DurationMs = 1000,
+                Loop = true
+            };
+
+            spriteSheet.Animations["WalkLeft"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (4, 0),
+                EndFrame = (4, 5),
+                DurationMs = 1000,
+                Loop = true,
+                Flip = RendererFlip.Horizontal
+            };
+
+            spriteSheet.Animations["WalkUp"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (5, 0),
+                EndFrame = (5, 5),
+                DurationMs = 1000,
+                Loop = true
+            };
+
+            spriteSheet.Animations["WalkDown"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (3, 0),
+                EndFrame = (3, 5),
+                DurationMs = 1000,
+                Loop = true
+            };
+
+            spriteSheet.Animations["IdleLeft"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (1, 0),
+                EndFrame = (1, 5),
+                DurationMs = 1000,
+                Loop = true,
+                Flip = RendererFlip.Horizontal
+            };
+
+            spriteSheet.Animations["IdleRight"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (1, 0),
+                EndFrame = (1, 5),
+                DurationMs = 1000,
+                Loop = true
+            };
+
+            spriteSheet.Animations["IdleUp"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (2, 0),
+                EndFrame = (2, 5),
+                DurationMs = 1000,
+                Loop = true
+            };
+            
             spriteSheet.Animations["IdleDown"] = new SpriteSheet.Animation()
             {
                 StartFrame = (0, 0),
@@ -62,6 +121,15 @@ namespace TheAdventure
                 DurationMs = 1000,
                 Loop = true
             };
+            
+            spriteSheet.Animations["Stay"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (6, 0),
+                EndFrame = (6, 3),
+                DurationMs = 1000,
+                Loop = true
+            };
+            
             _player = new PlayerObject(spriteSheet, 100, 100);
 
             _renderer.SetWorldBounds(new Rectangle<int>(0, 0, _currentLevel.Width * _currentLevel.TileWidth,
@@ -87,14 +155,14 @@ namespace TheAdventure
             itemsToRemove.AddRange(GetAllTemporaryGameObjects().Where(gameObject => gameObject.IsExpired)
                 .Select(gameObject => gameObject.Id).ToList());
             
-            CheckBombCollisions();
+            CheckForBombCollisions();
 
             foreach (var gameObject in itemsToRemove)
             {
                 _gameObjects.Remove(gameObject);
             }
 
-            if ((currentTime - _lastRandomBombTime).TotalSeconds > _random.Next(2, 8))
+            if ((currentTime - _lastRandomBombTime).TotalSeconds > _random.Next(1, 2))
             {
                 AddRandomBomb();
                 _lastRandomBombTime = currentTime;
@@ -206,7 +274,8 @@ namespace TheAdventure
                 DurationMs = 2000,
                 Loop = false
             };
-            TemporaryGameObject bomb = new(spriteSheet, 2.1, (translated.X, translated.Y));
+            // spriteSheet.ActivateAnimation("Explode");
+            TemporaryGameObject bomb = new(spriteSheet, 10, (translated.X, translated.Y));
             _gameObjects.Add(bomb.Id, bomb);
         }
 
@@ -216,36 +285,40 @@ namespace TheAdventure
             int randomY = _random.Next(0, _currentLevel.Height);
             AddBomb(randomX * _currentLevel.TileWidth, randomY * _currentLevel.TileHeight);
         }
-
-        private void CheckBombCollisions()
+        
+        private void CheckForBombCollisions()
         {
-            int playerWidth = 48; // Lățimea jucătorului
-            int playerHeight = 48; // Înălțimea jucătorului
-            var playerPosition = new Vector2D<int>(_player.Position.X - playerWidth / 2, _player.Position.Y - playerHeight / 2); // Centrul este convertit la colțul din stânga sus
-
-            foreach (var obj in _gameObjects.Values.ToList())
+            foreach (var gameObject in _gameObjects.Values)
             {
-                if (obj is TemporaryGameObject bomb)
+                if (gameObject is TemporaryGameObject bomb)
                 {
-                    var bombPosition = new Vector2D<int>(bomb.Position.X - 16, bomb.Position.Y - 32); // Centrul este convertit la colțul din stânga sus pentru bombă
-                    if (Intersects(playerPosition, playerWidth, playerHeight, bombPosition, 32, 64))
+                    // Let's assume the player's position is a point and the bomb's position is also a point
+                    // You may need a more complex check if they are larger or if you're using hitboxes
+                    if (IsPlayerCollidingWithBomb(_player.Position, bomb.Position))
                     {
-                        bomb.SpriteSheet.ActivateAnimation("Explode");
+                        TriggerBombExplosion(bomb);
                     }
                 }
             }
         }
 
-
-        private bool Intersects(Vector2D<int> posA, int widthA, int heightA, Vector2D<int> posB, int widthB,
-            int heightB)
+        private bool IsPlayerCollidingWithBomb((int X, int Y) playerPosition, (int X, int Y) bombPosition)
         {
-            // Check horizontal overlap
-            bool horizontalOverlap = posA.X < posB.X + widthB && posA.X + widthA > posB.X;
-            // Check vertical overlap
-            bool verticalOverlap = posA.Y < posB.Y + heightB && posA.Y + heightA > posB.Y;
+            // Simple collision detection
+            // Adjust the threshold according to the size of the player and bomb sprites
+            const int collisionThreshold = 32; // You may need to adjust this value
+            return Math.Abs(playerPosition.X - bombPosition.X) < collisionThreshold &&
+                   Math.Abs(playerPosition.Y - bombPosition.Y) < collisionThreshold;
+        }
 
-            return horizontalOverlap && verticalOverlap;
+        private void TriggerBombExplosion(TemporaryGameObject bomb)
+        {
+            // Here you would start the explosion animation for the bomb
+            // For example:
+            bomb.SpriteSheet.ActivateAnimation("Explode");
+
+            // You may also want to handle the aftermath of the explosion
+            // e.g., reducing player health, playing a sound effect, etc.
         }
     }
 }
