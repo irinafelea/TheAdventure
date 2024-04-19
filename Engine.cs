@@ -16,7 +16,8 @@ namespace TheAdventure
         private Input _input;
 
         private DateTimeOffset _lastUpdate = DateTimeOffset.Now;
-        private DateTimeOffset _lastPlayerUpdate = DateTimeOffset.Now;
+        private DateTimeOffset _lastRandomBombTime = DateTimeOffset.Now;
+        private Random _random = new Random();
 
         public Engine(GameRenderer renderer, Input input)
         {
@@ -54,6 +55,65 @@ namespace TheAdventure
 
             _currentLevel = level;
             SpriteSheet spriteSheet = new(_renderer, Path.Combine("Assets", "player.png"), 10, 6, 48, 48, (24, 42));
+            
+            spriteSheet.Animations["WalkRight"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (4, 0),
+                EndFrame = (4, 5),
+                DurationMs = 1000,
+                Loop = true
+            };
+
+            spriteSheet.Animations["WalkLeft"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (4, 0),
+                EndFrame = (4, 5),
+                DurationMs = 1000,
+                Loop = true,
+                Flip = RendererFlip.Horizontal
+            };
+
+            spriteSheet.Animations["WalkUp"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (5, 0),
+                EndFrame = (5, 5),
+                DurationMs = 1000,
+                Loop = true
+            };
+
+            spriteSheet.Animations["WalkDown"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (3, 0),
+                EndFrame = (3, 5),
+                DurationMs = 1000,
+                Loop = true
+            };
+
+            spriteSheet.Animations["IdleLeft"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (1, 0),
+                EndFrame = (1, 5),
+                DurationMs = 1000,
+                Loop = true,
+                Flip = RendererFlip.Horizontal
+            };
+
+            spriteSheet.Animations["IdleRight"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (1, 0),
+                EndFrame = (1, 5),
+                DurationMs = 1000,
+                Loop = true
+            };
+
+            spriteSheet.Animations["IdleUp"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (2, 0),
+                EndFrame = (2, 5),
+                DurationMs = 1000,
+                Loop = true
+            };
+            
             spriteSheet.Animations["IdleDown"] = new SpriteSheet.Animation()
             {
                 StartFrame = (0, 0),
@@ -61,6 +121,15 @@ namespace TheAdventure
                 DurationMs = 1000,
                 Loop = true
             };
+            
+            spriteSheet.Animations["Stay"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (9, 0),
+                EndFrame = (9, 3),
+                DurationMs = 2000,
+                Loop = true
+            };
+            
             _player = new PlayerObject(spriteSheet, 100, 100);
 
             _renderer.SetWorldBounds(new Rectangle<int>(0, 0, _currentLevel.Width * _currentLevel.TileWidth,
@@ -85,10 +154,18 @@ namespace TheAdventure
             var itemsToRemove = new List<int>();
             itemsToRemove.AddRange(GetAllTemporaryGameObjects().Where(gameObject => gameObject.IsExpired)
                 .Select(gameObject => gameObject.Id).ToList());
+            
+            CheckForBombCollisions();
 
             foreach (var gameObject in itemsToRemove)
             {
                 _gameObjects.Remove(gameObject);
+            }
+
+            if ((currentTime - _lastRandomBombTime).TotalSeconds > _random.Next(1, 2))
+            {
+                AddRandomBomb();
+                _lastRandomBombTime = currentTime;
             }
         }
 
@@ -96,7 +173,7 @@ namespace TheAdventure
         {
             _renderer.SetDrawColor(0, 0, 0, 255);
             _renderer.ClearScreen();
-            
+
             _renderer.CameraLookAt(_player.Position.X, _player.Position.Y);
 
             RenderTerrain();
@@ -125,6 +202,8 @@ namespace TheAdventure
         private void RenderTerrain()
         {
             if (_currentLevel == null) return;
+            Random random = new Random();
+
             for (var layer = 0; layer < _currentLevel.Layers.Length; ++layer)
             {
                 var cLayer = _currentLevel.Layers[layer];
@@ -134,7 +213,12 @@ namespace TheAdventure
                     for (var j = 0; j < _currentLevel.Height; ++j)
                     {
                         var cTileId = cLayer.Data[j * cLayer.Width + i] - 1;
-                        var cTile = GetTile(cTileId);
+                        var tileVariations = _loadedTileSets
+                            .SelectMany(ts => ts.Value.Tiles.Where(t => t.Id == cTileId)).ToList();
+
+                        var cTile = tileVariations.Count > 1
+                            ? tileVariations[random.Next(tileVariations.Count)]
+                            : GetTile(cTileId);
                         if (cTile == null) continue;
 
                         var src = new Rectangle<int>(0, 0, cTile.ImageWidth, cTile.ImageHeight);
@@ -190,9 +274,41 @@ namespace TheAdventure
                 DurationMs = 2000,
                 Loop = false
             };
-            spriteSheet.ActivateAnimation("Explode");
-            TemporaryGameObject bomb = new(spriteSheet, 2.1, (translated.X, translated.Y));
+            TemporaryGameObject bomb = new(spriteSheet, 10, (translated.X, translated.Y));
             _gameObjects.Add(bomb.Id, bomb);
+        }
+
+        private void AddRandomBomb()
+        {
+            int randomX = _random.Next(0, _currentLevel.Width);
+            int randomY = _random.Next(0, _currentLevel.Height);
+            AddBomb(randomX * _currentLevel.TileWidth, randomY * _currentLevel.TileHeight);
+        }
+        
+        private void CheckForBombCollisions()
+        {
+            foreach (var gameObject in _gameObjects.Values)
+            {
+                if (gameObject is TemporaryGameObject bomb)
+                {
+                    if (IsPlayerCollidingWithBomb(_player.Position, bomb.Position))
+                    {
+                        TriggerBombExplosion(bomb);
+                    }
+                }
+            }
+        }
+
+        private bool IsPlayerCollidingWithBomb((int X, int Y) playerPosition, (int X, int Y) bombPosition)
+        {
+            const int collisionThreshold = 48; 
+            return Math.Abs(playerPosition.X - bombPosition.X) < collisionThreshold &&
+                   Math.Abs(playerPosition.Y - bombPosition.Y) < collisionThreshold;
+        }
+
+        private void TriggerBombExplosion(TemporaryGameObject bomb)
+        {
+            bomb.SpriteSheet.ActivateAnimation("Explode");
         }
     }
 }
