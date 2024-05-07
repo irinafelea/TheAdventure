@@ -12,6 +12,7 @@ namespace TheAdventure
 
         private Level? _currentLevel;
         private PlayerObject _player;
+        private DogObject _dog;
         private GameRenderer _renderer;
         private Input _input;
 
@@ -131,6 +132,82 @@ namespace TheAdventure
             };
             
             _player = new PlayerObject(spriteSheet, 100, 100);
+            
+            SpriteSheet spriteSheet2 = new(_renderer, Path.Combine("Assets", "dog.png"), 10, 6, 32, 32, (24, 52));
+
+             spriteSheet2.Animations["WalkRight"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (1, 0),
+                EndFrame = (1, 3),
+                DurationMs = 1000,
+                Loop = true
+            };
+
+            spriteSheet2.Animations["WalkLeft"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (3, 0),
+                EndFrame = (3, 3),
+                DurationMs = 1000,
+                Loop = true,
+            };
+
+            spriteSheet2.Animations["WalkUp"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (2, 0),
+                EndFrame = (2, 3),
+                DurationMs = 1000,
+                Loop = true
+            };
+
+            spriteSheet2.Animations["WalkDown"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (0, 0),
+                EndFrame = (0, 3),
+                DurationMs = 1000,
+                Loop = true
+            };
+
+            spriteSheet2.Animations["IdleLeft"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (3, 0),
+                EndFrame = (3, 3),
+                DurationMs = 1000,
+                Loop = true
+            };
+
+            spriteSheet2.Animations["IdleRight"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (1, 0),
+                EndFrame = (1, 3),
+                DurationMs = 1000,
+                Loop = true
+            };
+
+            spriteSheet2.Animations["IdleUp"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (2, 0),
+                EndFrame = (2, 3),
+                DurationMs = 1000,
+                Loop = true
+            };
+            
+            spriteSheet2.Animations["IdleDown"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (0, 0),
+                EndFrame = (0, 3),
+                DurationMs = 1000,
+                Loop = true
+            };
+            
+            spriteSheet2.Animations["Stay"] = new SpriteSheet.Animation()
+            {
+                StartFrame = (7, 0),
+                EndFrame = (7, 1),
+                DurationMs = 2000,
+                Loop = true
+            };
+            
+            _dog = new DogObject(spriteSheet2, 85, 120);
 
             _renderer.SetWorldBounds(new Rectangle<int>(0, 0, _currentLevel.Width * _currentLevel.TileWidth,
                 _currentLevel.Height * _currentLevel.TileHeight));
@@ -148,6 +225,10 @@ namespace TheAdventure
             bool right = _input.IsRightPressed();
 
             _player.UpdatePlayerPosition(up ? 1.0 : 0.0, down ? 1.0 : 0.0, left ? 1.0 : 0.0, right ? 1.0 : 0.0,
+                _currentLevel.Width * _currentLevel.TileWidth, _currentLevel.Height * _currentLevel.TileHeight,
+                secsSinceLastFrame);
+            
+            _dog.UpdateDogPosition(up ? 1.0 : 0.0, down ? 1.0 : 0.0, left ? 1.0 : 0.0, right ? 1.0 : 0.0,
                 _currentLevel.Width * _currentLevel.TileWidth, _currentLevel.Height * _currentLevel.TileHeight,
                 secsSinceLastFrame);
 
@@ -261,6 +342,7 @@ namespace TheAdventure
             }
 
             _player.Render(_renderer);
+            _dog.Render(_renderer);
         }
 
         private void AddBomb(int x, int y)
